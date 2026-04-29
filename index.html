@@ -1,125 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>OMS Barcode Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
-    h2{font-size:20px;font-weight:800;margin-bottom:6px;text-align:center}
-    p{font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px}
-    #reader{width:min(380px,95vw);border-radius:16px;overflow:hidden;border:3px solid #2563eb}
-    .result{margin-top:16px;padding:14px 18px;border-radius:12px;font-weight:700;font-size:15px;text-align:center;display:none}
-    .result.ok{background:#16a34a;color:#fff;display:block}
-    .result.err{background:#dc2626;color:#fff;display:block}
-    .cam-row{display:flex;gap:10px;margin-top:14px;width:min(380px,95vw)}
-    select{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:13px}
-    button{padding:10px 16px;border-radius:10px;border:none;background:#2563eb;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
-    button:hover{background:#1d4ed8}
-    .manual-row{display:flex;gap:8px;margin-top:12px;width:min(380px,95vw)}
-    input{flex:1;padding:11px 13px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:14px}
-    input::placeholder{color:#475569}
-    .hint{font-size:12px;color:#64748b;margin-top:12px;text-align:center}
-  </style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OMS Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0f172a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+h2{font-size:22px;font-weight:800;margin-bottom:6px;text-align:center}
+p{font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px}
+#reader{width:min(380px,95vw);border-radius:16px;overflow:hidden;border:3px solid #2563eb}
+#result{margin-top:16px;padding:14px;border-radius:12px;font-weight:700;font-size:14px;text-align:center;background:#1e40af;color:#fff;width:min(380px,95vw)}
+.cam-row{display:flex;gap:10px;margin-top:12px;width:min(380px,95vw)}
+select{flex:1;padding:10px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:13px}
+button{padding:10px 14px;border-radius:10px;border:none;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+.manual-row{display:flex;gap:8px;margin-top:10px;width:min(380px,95vw)}
+input{flex:1;padding:11px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:14px}
+.hint{font-size:12px;color:#64748b;margin-top:14px;text-align:center;line-height:1.7}
+</style>
 </head>
 <body>
-  <h2>📷 OMS Barcode Scanner</h2>
-  <p>Point camera at AWB barcode to scan</p>
-  <div id="reader"></div>
-  <div id="result" class="result"></div>
-  <div class="cam-row">
-    <select id="camSel"></select>
-    <button onclick="switchCam()">Switch</button>
-  </div>
-  <div class="manual-row">
-    <input id="manualInput" placeholder="Or type AWB manually and press Enter">
-    <button onclick="sendManual()">Send</button>
-  </div>
-  <div class="hint">This scanner sends the AWB back to your OMS window automatically.</div>
-
+<h2>📷 OMS Barcode Scanner</h2>
+<p>Point camera at AWB barcode — auto-sends to OMS</p>
+<div id="reader"></div>
+<div id="result">Starting camera...</div>
+<div class="cam-row">
+  <select id="camSel"></select>
+  <button onclick="switchCam()">🔄 Switch Cam</button>
+</div>
+<div class="manual-row">
+  <input id="mi" placeholder="Type AWB manually + press Enter">
+  <button onclick="sendManual()">Send</button>
+</div>
+<div class="hint">
+  Scanned AWB is sent back to OMS automatically.<br>
+  Window closes in 1.5 seconds after scan.
+</div>
 <script>
-  let scanner = null;
-  let cameras = [];
-
-  async function init() {
-    try {
-      cameras = await Html5Qrcode.getCameras();
-      const sel = document.getElementById('camSel');
-      sel.innerHTML = '';
-      cameras.forEach((c, i) => {
-        const o = document.createElement('option');
-        o.value = c.id; o.textContent = c.label || 'Camera ' + (i+1);
-        sel.appendChild(o);
-      });
-      // prefer back camera
-      const back = cameras.find(c => /back|rear|environ/i.test(c.label));
-      if (back) sel.value = back.id;
-      startScan(sel.value);
-    } catch(e) {
-      document.getElementById('result').className = 'result err';
-      document.getElementById('result').textContent = 'Camera error: ' + e.message || e;
-    }
-  }
-
-  function startScan(camId) {
-    if (scanner) {
-      scanner.stop().catch(()=>{}).finally(() => doScan(camId));
-    } else {
-      scanner = new Html5Qrcode('reader');
-      doScan(camId);
-    }
-  }
-
-  function doScan(camId) {
-    scanner.start(
-      camId,
-      {fps: 15, qrbox: {width: 300, height: 140}},
-      (text) => {
-        // SUCCESS
-        scanner.stop().catch(()=>{});
-        document.getElementById('result').className = 'result ok';
-        document.getElementById('result').textContent = '✅ Scanned: ' + text;
-        sendToOMS(text);
-      },
-      () => {}
-    ).catch(e => {
-      document.getElementById('result').className = 'result err';
-      document.getElementById('result').textContent = 'Start error: ' + e;
-    });
-  }
-
-  function switchCam() {
-    const sel = document.getElementById('camSel');
-    sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+var scanner=null,cameras=[];
+function setResult(bg,msg){var r=document.getElementById('result');r.style.background=bg;r.textContent=msg;}
+async function init(){
+  try{
+    cameras=await Html5Qrcode.getCameras();
+    if(!cameras||!cameras.length){setResult('#dc2626','❌ No camera found');return;}
+    var sel=document.getElementById('camSel');
+    sel.innerHTML='';
+    cameras.forEach(function(c,i){var o=document.createElement('option');o.value=c.id;o.textContent=c.label||'Camera '+(i+1);sel.appendChild(o);});
+    var back=cameras.find(function(c){return /back|rear|environ/i.test(c.label);});
+    if(back)sel.value=back.id;
     startScan(sel.value);
-  }
-
-  function sendManual() {
-    const v = document.getElementById('manualInput').value.trim();
-    if (!v) return;
-    sendToOMS(v);
-  }
-
-  function sendToOMS(awb) {
-    // Send to parent window (GAS web app) via postMessage
-    if (window.opener) {
-      window.opener.postMessage({type: 'OMS_SCAN', awb: awb}, '*');
-    }
-    // Also try parent iframe
-    if (window.parent !== window) {
-      window.parent.postMessage({type: 'OMS_SCAN', awb: awb}, '*');
-    }
-    document.getElementById('result').className = 'result ok';
-    document.getElementById('result').textContent = '✅ Sent to OMS: ' + awb;
-    setTimeout(() => window.close(), 1500);
-  }
-
-  document.getElementById('manualInput').addEventListener('keyup', e => {
-    if (e.key === 'Enter') sendManual();
-  });
-
-  window.addEventListener('load', init);
+  }catch(e){setResult('#dc2626','❌ Camera error: '+(e.message||e));}
+}
+function startScan(id){
+  if(scanner){scanner.stop().catch(function(){}).finally(function(){doScan(id);});}
+  else{scanner=new Html5Qrcode('reader');doScan(id);}
+}
+function doScan(id){
+  setResult('#1e40af','📷 Point at barcode...');
+  scanner.start(id,{fps:15,qrbox:{width:280,height:130}},function(text){
+    if(scanner)scanner.stop().catch(function(){});
+    setResult('#16a34a','✅ Scanned: '+text);
+    sendToOMS(text);
+  },function(){}).catch(function(e){setResult('#dc2626','❌ '+e);});
+}
+function switchCam(){
+  var sel=document.getElementById('camSel');
+  if(sel.options.length<2){setResult('#f59e0b','Only one camera available');return;}
+  sel.selectedIndex=(sel.selectedIndex+1)%sel.options.length;
+  startScan(sel.value);
+}
+function sendManual(){var v=document.getElementById('mi').value.trim();if(v)sendToOMS(v);}
+function sendToOMS(awb){
+  if(window.opener)window.opener.postMessage({type:'OMS_SCAN',awb:awb},'*');
+  if(window.parent&&window.parent!==window)window.parent.postMessage({type:'OMS_SCAN',awb:awb},'*');
+  setResult('#16a34a','✅ Sent to OMS: '+awb);
+  setTimeout(function(){window.close();},1500);
+}
+document.getElementById('mi').addEventListener('keyup',function(e){if(e.key==='Enter')sendManual();});
+window.addEventListener('load',init);
 </script>
 </body>
 </html>
