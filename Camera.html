@@ -1,191 +1,316 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>OMS Barcode Scanner</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>OMS Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;background:#0a0f1e;color:#f1f5f9;font-family:system-ui,sans-serif;overflow:hidden}
-body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;gap:10px}
-h2{color:#3b82f6;font-size:16px;font-weight:800;display:flex;align-items:center;gap:6px;margin-top:4px}
-.video-wrap{position:relative;width:100%;max-width:380px;border-radius:14px;overflow:hidden;background:#000;border:2px solid #1e3a5f}
-video{width:100%;display:block;max-height:52vh;object-fit:cover}
-.overlay{position:absolute;inset:0;pointer-events:none}
-/* corner brackets */
-.c{position:absolute;width:28px;height:28px;border-color:#3b82f6;border-style:solid}
-.tl{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
-.tr{top:8px;right:8px;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
-.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;border-radius:0 0 0 4px}
-.br{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
-/* scan line */
-.sl{position:absolute;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,transparent);box-shadow:0 0 10px #3b82f6;animation:scan 1.8s ease-in-out infinite}
-@keyframes scan{0%,100%{top:12%}50%{top:85%}}
-#status{width:100%;max-width:380px;background:#111827;border-radius:10px;padding:10px 14px;font-size:13px;color:#94a3b8;text-align:center;min-height:52px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;line-height:1.6}
-#status .big{font-size:16px;font-weight:800;color:#22c55e}
-.btns{display:flex;gap:8px;width:100%;max-width:380px}
-.btn{flex:1;padding:11px 6px;border-radius:10px;border:1.5px solid #1e3a5f;background:#111827;color:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
-.btn:active,.btn:hover{background:#1e3a5f}
-#torchBtn.on{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#f59e0b}
-.hint{font-size:11px;color:#475569;text-align:center;max-width:380px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0a0f1e;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 12px;gap:10px}
+h2{font-size:19px;font-weight:900;color:#3b82f6;display:flex;align-items:center;gap:8px;margin-top:4px}
+.sub{font-size:12px;color:#64748b;text-align:center}
+
+/* video frame */
+#reader{width:min(380px,96vw);border-radius:14px;overflow:hidden;border:2.5px solid #1e3a5f;background:#000;position:relative}
+#reader video{display:block}
+
+/* scan queue */
+.queue-wrap{width:min(380px,96vw);background:#0f172a;border-radius:12px;border:1px solid #1e3a5f;overflow:hidden}
+.queue-hdr{background:#1e293b;padding:8px 12px;font-size:12px;font-weight:700;color:#94a3b8;display:flex;justify-content:space-between;align-items:center}
+.queue-hdr span{color:#3b82f6;font-size:16px;font-weight:900}
+#queueList{max-height:160px;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:5px}
+#queueList:empty::after{content:"No scans yet — point camera at barcode";color:#475569;font-size:12px;display:block;text-align:center;padding:12px 0}
+.qitem{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:13px;animation:fadeIn .25s ease}
+.qitem.ok{background:#052e16;border:1px solid #166534}
+.qitem.err{background:#2d0a0a;border:1px solid #7f1d1d}
+.qitem .icon{font-size:17px;flex-shrink:0}
+.qitem .awb{font-family:monospace;font-weight:800;flex:1;word-break:break-all}
+.qitem .info{font-size:11px;color:#94a3b8;max-width:130px;text-align:right;line-height:1.4}
+.qitem.err .info{color:#f87171}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* status bar */
+#statusBar{width:min(380px,96vw);padding:10px 14px;border-radius:10px;background:#111827;font-size:13px;font-weight:700;text-align:center;min-height:42px;display:flex;align-items:center;justify-content:center;border:1px solid #1e3a5f}
+
+/* buttons */
+.btns{display:flex;gap:8px;width:min(380px,96vw)}
+.btn{flex:1;padding:11px 4px;border-radius:10px;border:1.5px solid #1e3a5f;background:#111827;color:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer}
+.btn:active{background:#1e3a5f}
+.btn.red{background:#7f1d1d;border-color:#dc2626;color:#fca5a5}
+
+/* manual */
+.manual-row{display:flex;gap:8px;width:min(380px,96vw)}
+input{flex:1;padding:10px;border-radius:10px;border:1px solid #1e3a5f;background:#111827;color:#fff;font-size:14px;outline:none}
+input:focus{border-color:#3b82f6}
+
+/* counter badge */
+.badge{background:#3b82f6;color:#fff;border-radius:20px;padding:1px 8px;font-size:12px;font-weight:800}
+.badge.green{background:#16a34a}
+.badge.red{background:#dc2626}
+
+/* cam select */
+.cam-row{display:flex;gap:8px;width:min(380px,96vw)}
+select{flex:1;padding:9px;border-radius:10px;border:1px solid #1e3a5f;background:#111827;color:#fff;font-size:12px}
 </style>
 </head>
 <body>
-<h2>📷 OMS Barcode Scanner</h2>
 
-<div class="video-wrap">
-  <video id="vid" playsinline autoplay muted></video>
-  <div class="overlay">
-    <div class="c tl"></div><div class="c tr"></div>
-    <div class="c bl"></div><div class="c br"></div>
-    <div class="sl" id="scanLine"></div>
+<h2>📦 OMS Bulk Scanner</h2>
+<div class="sub">Scans continuously — no need to re-tap after each AWB</div>
+
+<div id="reader"></div>
+
+<div id="statusBar">⏳ Initializing camera…</div>
+
+<div class="queue-wrap">
+  <div class="queue-hdr">
+    SCAN QUEUE
+    <div style="display:flex;gap:6px;align-items:center">
+      <span id="okCount" class="badge green">0 ✓</span>
+      <span id="errCount" class="badge red">0 ✗</span>
+      <button style="background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer" onclick="clearQueue()">Clear</button>
+    </div>
   </div>
+  <div id="queueList"></div>
 </div>
-
-<div id="status">⏳ Starting camera…</div>
 
 <div class="btns">
-  <button class="btn" onclick="flipCam()">🔄 Flip</button>
-  <button class="btn" id="torchBtn" onclick="toggleTorch()">🔦 Torch</button>
-  <button class="btn" onclick="closeMe()">✕ Close</button>
+  <button class="btn" onclick="switchCam()">🔄 Flip Cam</button>
+  <button class="btn" id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
+  <button class="btn red" onclick="sendAllAndClose()">📤 Done & Close</button>
 </div>
-<div class="hint">Align AWB / barcode within the frame</div>
 
-<!-- ZXing from CDN -->
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<div class="manual-row">
+  <input id="mi" placeholder="Type AWB manually + Enter" autocomplete="off" autocapitalize="characters">
+  <button class="btn" style="flex:none;padding:10px 14px" onclick="sendManual()">Add</button>
+</div>
+
+<div class="cam-row">
+  <select id="camSel" onchange="startScan(this.value)"></select>
+</div>
+
 <script>
-var stream = null;
-var facing = 'environment';
-var torchOn = false;
-var scanning = false;
-var reader = null;
-var canvas = document.createElement('canvas');
-var ctx2d  = canvas.getContext('2d');
-var rafId  = null;
+var scanner = null;
+var cameras = [];
+var paused  = false;
+var scanned = {}; // AWB → true (dedup)
+var okList  = [];
+var errList = [];
+var parentOrigin = '*';
 
-function setStatus(html) {
-  document.getElementById('status').innerHTML = html;
-}
-
-function startCamera() {
-  stopCamera();
-  scanning = true;
-  setStatus('⏳ Requesting camera…');
-
-  var constraints = {
-    video: {
-      facingMode: { ideal: facing },
-      width:  { ideal: 1280 },
-      height: { ideal: 720 }
-    }
-  };
-
-  navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(s) {
-      stream = s;
-      var v = document.getElementById('vid');
-      v.srcObject = s;
-      v.play();
-      v.addEventListener('loadedmetadata', function() {
-        setStatus('🟢 Camera active — align barcode in frame');
-        scanLoop();
-      }, { once: true });
-    })
-    .catch(function(err) {
-      scanning = false;
-      setStatus(
-        '<span style="color:#ef4444;font-weight:800">❌ Camera blocked</span><br>' +
-        '<span style="font-size:11px">Click 🔒 in address bar → Allow Camera → Refresh</span>'
-      );
-    });
-}
-
-function stopCamera() {
-  scanning = false;
-  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
-}
-
-function scanLoop() {
-  if (!scanning) return;
-  var v = document.getElementById('vid');
-  if (!v || v.readyState < 2 || v.videoWidth === 0) {
-    rafId = requestAnimationFrame(scanLoop);
-    return;
-  }
-
-  canvas.width  = v.videoWidth;
-  canvas.height = v.videoHeight;
-  ctx2d.drawImage(v, 0, 0);
-
-  if (!window.ZXing) { rafId = requestAnimationFrame(scanLoop); return; }
-  if (!reader) reader = new ZXing.BrowserMultiFormatReader();
-
-  var dataUrl = canvas.toDataURL('image/png');
-  var img = new Image();
-  img.onload = function() {
-    reader.decodeFromImage(img)
-      .then(function(result) {
-        if (result) {
-          onScanned(result.getText());
-        } else {
-          if (scanning) rafId = requestAnimationFrame(scanLoop);
-        }
-      })
-      .catch(function() {
-        if (scanning) rafId = requestAnimationFrame(scanLoop);
-      });
-  };
-  img.src = dataUrl;
-}
-
-function onScanned(code) {
-  code = code.trim().replace(/\s+/g, '').toUpperCase();
-  if (!code || code.length < 4) {
-    if (scanning) rafId = requestAnimationFrame(scanLoop);
-    return;
-  }
-
-  scanning = false;
-  setStatus('<span class="big">✅ ' + code + '</span><br><span style="font-size:11px;color:#6b7280">Sending to OMS…</span>');
-  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
-
-  // Send to opener (GAS window)
+// ── Speech ──
+function speak(text) {
   try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({ type: 'OMS_SCAN', awb: code }, '*');
-    }
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-IN'; u.volume = 1; u.rate = 1.1; u.pitch = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
   } catch(e) {}
-
-  // Also broadcast to parent if in iframe
-  try { window.parent.postMessage({ type: 'OMS_SCAN', awb: code }, '*'); } catch(e) {}
-
-  setTimeout(function() { stopCamera(); window.close(); }, 700);
 }
 
-function flipCam() {
-  facing = facing === 'environment' ? 'user' : 'environment';
-  startCamera();
-}
-
-function toggleTorch() {
-  if (!stream) return;
-  var track = stream.getVideoTracks()[0];
-  torchOn = !torchOn;
+// ── Beep via AudioContext ──
+function beep(freq, dur, type) {
   try {
-    track.applyConstraints({ advanced: [{ torch: torchOn }] });
-    document.getElementById('torchBtn').classList.toggle('on', torchOn);
-  } catch(e) { torchOn = false; }
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type||'sine'; o.frequency.value = freq||880;
+    g.gain.setValueAtTime(0.4, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur||0.15));
+    o.start(); o.stop(ctx.currentTime + (dur||0.15));
+  } catch(e) {}
 }
 
-function closeMe() {
-  stopCamera();
+// ── Status bar ──
+function setStatus(msg, color) {
+  var el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.style.color = color || '#f1f5f9';
+  el.style.borderColor = color || '#1e3a5f';
+}
+
+// ── Add item to queue list ──
+function addToQueue(awb, ok, info) {
+  var list = document.getElementById('queueList');
+  var div  = document.createElement('div');
+  div.className = 'qitem ' + (ok ? 'ok' : 'err');
+  div.innerHTML =
+    '<div class="icon">' + (ok ? '✅' : '❌') + '</div>' +
+    '<div class="awb">' + awb + '</div>' +
+    '<div class="info">' + (info||'') + '</div>';
+  list.insertBefore(div, list.firstChild);
+  // update counters
+  document.getElementById('okCount').textContent  = okList.length  + ' ✓';
+  document.getElementById('errCount').textContent = errList.length + ' ✗';
+}
+
+function clearQueue() {
+  document.getElementById('queueList').innerHTML = '';
+  scanned = {}; okList = []; errList = [];
+  document.getElementById('okCount').textContent  = '0 ✓';
+  document.getElementById('errCount').textContent = '0 ✗';
+}
+
+// ── Fetch AWB from parent OMS cache ──
+function fetchAWBInfo(awb, callback) {
+  // Ask parent window for cached data via postMessage
+  var timeout = setTimeout(function() {
+    callback(null); // no response = not found
+  }, 1200);
+
+  var handler = function(e) {
+    if (e.data && e.data.type === 'OMS_AWB_RESULT' && e.data.awb === awb) {
+      clearTimeout(timeout);
+      window.removeEventListener('message', handler);
+      callback(e.data.info || null);
+    }
+  };
+  window.addEventListener('message', handler);
+
+  try {
+    if (window.opener && !window.opener.closed)
+      window.opener.postMessage({ type: 'OMS_AWB_LOOKUP', awb: awb }, '*');
+  } catch(e) { clearTimeout(timeout); callback(null); }
+}
+
+// ── Main scan handler ──
+function onScanSuccess(text) {
+  text = text.trim().replace(/\s+/g,'').toUpperCase();
+  if (!text || text.length < 4) return;
+  if (scanned[text]) {
+    setStatus('⚠️ Already scanned: ' + text, '#f59e0b');
+    return;
+  }
+  scanned[text] = true;
+  if (navigator.vibrate) navigator.vibrate(60);
+  beep(880, 0.1);
+
+  setStatus('🔍 Looking up: ' + text, '#3b82f6');
+
+  // Lookup in parent OMS cache
+  fetchAWBInfo(text, function(info) {
+    if (info && info.customer) {
+      okList.push({ awb: text, info: info });
+      var label = info.customer + ' · ' + (info.courier || '');
+      addToQueue(text, true, label);
+      speak(text.slice(-4) + ' — ' + (info.courier || 'found'));
+      beep(1046, 0.15);
+      setStatus('✅ ' + text + ' — ' + (info.courier||'OK'), '#22c55e');
+    } else {
+      errList.push({ awb: text });
+      addToQueue(text, false, 'Not in cache');
+      speak('not found — ' + text.slice(-4));
+      beep(220, 0.25, 'sawtooth');
+      setStatus('❌ Not in cache: ' + text, '#ef4444');
+    }
+    // Send to OMS immediately (continuous — don't close)
+    try {
+      if (window.opener && !window.opener.closed)
+        window.opener.postMessage({ type: 'OMS_SCAN', awb: text }, '*');
+    } catch(e) {}
+    // Resume scanning after short delay
+    setTimeout(function() {
+      if (!paused) setStatus('📷 Ready — point at next barcode', '#94a3b8');
+    }, 1500);
+  });
+}
+
+// ── Camera init ──
+async function init() {
+  setStatus('⏳ Requesting camera access…', '#94a3b8');
+  try {
+    cameras = await Html5Qrcode.getCameras();
+    if (!cameras || !cameras.length) {
+      setStatus('❌ No camera found', '#ef4444');
+      speak('no camera found');
+      return;
+    }
+    var sel = document.getElementById('camSel');
+    sel.innerHTML = '';
+    cameras.forEach(function(c, i) {
+      var o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = c.label || ('Camera ' + (i+1));
+      sel.appendChild(o);
+    });
+    var back = cameras.find(function(c){ return /back|rear|environ/i.test(c.label); });
+    if (back) sel.value = back.id;
+    scanner = new Html5Qrcode('reader');
+    startScan(sel.value);
+  } catch(e) {
+    setStatus('❌ Camera error: ' + (e.message||e), '#ef4444');
+    speak('camera blocked. please allow camera permission.');
+  }
+}
+
+function startScan(camId) {
+  if (!scanner) return;
+  setStatus('⏳ Starting camera…', '#94a3b8');
+  scanner.stop().catch(function(){}).finally(function() {
+    scanner.start(
+      camId,
+      { fps: 20, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5 },
+      onScanSuccess,
+      function() {} // ignore frame errors
+    ).then(function() {
+      paused = false;
+      document.getElementById('pauseBtn').textContent = '⏸ Pause';
+      setStatus('📷 Ready — point at barcode', '#94a3b8');
+      speak('scanner ready');
+    }).catch(function(e) {
+      setStatus('❌ ' + (e.message||e), '#ef4444');
+    });
+  });
+}
+
+function switchCam() {
+  var sel = document.getElementById('camSel');
+  if (sel.options.length < 2) { setStatus('⚠️ Only one camera available', '#f59e0b'); return; }
+  sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+  startScan(sel.value);
+}
+
+function togglePause() {
+  var btn = document.getElementById('pauseBtn');
+  if (!paused) {
+    if (scanner) scanner.pause(true);
+    paused = true;
+    btn.textContent = '▶ Resume';
+    setStatus('⏸ Paused', '#f59e0b');
+  } else {
+    if (scanner) scanner.resume();
+    paused = false;
+    btn.textContent = '⏸ Pause';
+    setStatus('📷 Ready — point at barcode', '#94a3b8');
+  }
+}
+
+function sendManual() {
+  var v = document.getElementById('mi').value.trim().toUpperCase();
+  if (!v) return;
+  document.getElementById('mi').value = '';
+  onScanSuccess(v);
+}
+
+function sendAllAndClose() {
+  var all = okList.concat(errList);
+  try {
+    if (window.opener && !window.opener.closed)
+      window.opener.postMessage({ type: 'OMS_SCAN_DONE', items: all }, '*');
+  } catch(e) {}
+  if (scanner) scanner.stop().catch(function(){});
   window.close();
 }
 
-// START
-window.addEventListener('load', startCamera);
-window.addEventListener('beforeunload', stopCamera);
+document.getElementById('mi').addEventListener('keyup', function(e) {
+  if (e.key === 'Enter') sendManual();
+});
+
+window.addEventListener('load', init);
+window.addEventListener('beforeunload', function() {
+  if (scanner) scanner.stop().catch(function(){});
+});
 </script>
 </body>
 </html>
