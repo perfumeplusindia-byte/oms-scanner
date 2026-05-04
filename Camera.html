@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OMS Barcode Scanner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0a0f1e;color:#f1f5f9;font-family:system-ui,sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;gap:10px}
+h2{color:#3b82f6;font-size:16px;font-weight:800;display:flex;align-items:center;gap:6px;margin-top:4px}
+.video-wrap{position:relative;width:100%;max-width:380px;border-radius:14px;overflow:hidden;background:#000;border:2px solid #1e3a5f}
+video{width:100%;display:block;max-height:52vh;object-fit:cover}
+.overlay{position:absolute;inset:0;pointer-events:none}
+/* corner brackets */
+.c{position:absolute;width:28px;height:28px;border-color:#3b82f6;border-style:solid}
+.tl{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.tr{top:8px;right:8px;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
+.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;border-radius:0 0 0 4px}
+.br{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+/* scan line */
+.sl{position:absolute;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,transparent);box-shadow:0 0 10px #3b82f6;animation:scan 1.8s ease-in-out infinite}
+@keyframes scan{0%,100%{top:12%}50%{top:85%}}
+#status{width:100%;max-width:380px;background:#111827;border-radius:10px;padding:10px 14px;font-size:13px;color:#94a3b8;text-align:center;min-height:52px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;line-height:1.6}
+#status .big{font-size:16px;font-weight:800;color:#22c55e}
+.btns{display:flex;gap:8px;width:100%;max-width:380px}
+.btn{flex:1;padding:11px 6px;border-radius:10px;border:1.5px solid #1e3a5f;background:#111827;color:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn:active,.btn:hover{background:#1e3a5f}
+#torchBtn.on{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#f59e0b}
+.hint{font-size:11px;color:#475569;text-align:center;max-width:380px}
+</style>
+</head>
+<body>
+<h2>📷 OMS Barcode Scanner</h2>
+
+<div class="video-wrap">
+  <video id="vid" playsinline autoplay muted></video>
+  <div class="overlay">
+    <div class="c tl"></div><div class="c tr"></div>
+    <div class="c bl"></div><div class="c br"></div>
+    <div class="sl" id="scanLine"></div>
+  </div>
+</div>
+
+<div id="status">⏳ Starting camera…</div>
+
+<div class="btns">
+  <button class="btn" onclick="flipCam()">🔄 Flip</button>
+  <button class="btn" id="torchBtn" onclick="toggleTorch()">🔦 Torch</button>
+  <button class="btn" onclick="closeMe()">✕ Close</button>
+</div>
+<div class="hint">Align AWB / barcode within the frame</div>
+
+<!-- ZXing from CDN -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script>
+var stream = null;
+var facing = 'environment';
+var torchOn = false;
+var scanning = false;
+var reader = null;
+var canvas = document.createElement('canvas');
+var ctx2d  = canvas.getContext('2d');
+var rafId  = null;
+
+function setStatus(html) {
+  document.getElementById('status').innerHTML = html;
+}
+
+function startCamera() {
+  stopCamera();
+  scanning = true;
+  setStatus('⏳ Requesting camera…');
+
+  var constraints = {
+    video: {
+      facingMode: { ideal: facing },
+      width:  { ideal: 1280 },
+      height: { ideal: 720 }
+    }
+  };
+
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then(function(s) {
+      stream = s;
+      var v = document.getElementById('vid');
+      v.srcObject = s;
+      v.play();
+      v.addEventListener('loadedmetadata', function() {
+        setStatus('🟢 Camera active — align barcode in frame');
+        scanLoop();
+      }, { once: true });
+    })
+    .catch(function(err) {
+      scanning = false;
+      setStatus(
+        '<span style="color:#ef4444;font-weight:800">❌ Camera blocked</span><br>' +
+        '<span style="font-size:11px">Click 🔒 in address bar → Allow Camera → Refresh</span>'
+      );
+    });
+}
+
+function stopCamera() {
+  scanning = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+}
+
+function scanLoop() {
+  if (!scanning) return;
+  var v = document.getElementById('vid');
+  if (!v || v.readyState < 2 || v.videoWidth === 0) {
+    rafId = requestAnimationFrame(scanLoop);
+    return;
+  }
+
+  canvas.width  = v.videoWidth;
+  canvas.height = v.videoHeight;
+  ctx2d.drawImage(v, 0, 0);
+
+  if (!window.ZXing) { rafId = requestAnimationFrame(scanLoop); return; }
+  if (!reader) reader = new ZXing.BrowserMultiFormatReader();
+
+  var dataUrl = canvas.toDataURL('image/png');
+  var img = new Image();
+  img.onload = function() {
+    reader.decodeFromImage(img)
+      .then(function(result) {
+        if (result) {
+          onScanned(result.getText());
+        } else {
+          if (scanning) rafId = requestAnimationFrame(scanLoop);
+        }
+      })
+      .catch(function() {
+        if (scanning) rafId = requestAnimationFrame(scanLoop);
+      });
+  };
+  img.src = dataUrl;
+}
+
+function onScanned(code) {
+  code = code.trim().replace(/\s+/g, '').toUpperCase();
+  if (!code || code.length < 4) {
+    if (scanning) rafId = requestAnimationFrame(scanLoop);
+    return;
+  }
+
+  scanning = false;
+  setStatus('<span class="big">✅ ' + code + '</span><br><span style="font-size:11px;color:#6b7280">Sending to OMS…</span>');
+  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+
+  // Send to opener (GAS window)
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'OMS_SCAN', awb: code }, '*');
+    }
+  } catch(e) {}
+
+  // Also broadcast to parent if in iframe
+  try { window.parent.postMessage({ type: 'OMS_SCAN', awb: code }, '*'); } catch(e) {}
+
+  setTimeout(function() { stopCamera(); window.close(); }, 700);
+}
+
+function flipCam() {
+  facing = facing === 'environment' ? 'user' : 'environment';
+  startCamera();
+}
+
+function toggleTorch() {
+  if (!stream) return;
+  var track = stream.getVideoTracks()[0];
+  torchOn = !torchOn;
+  try {
+    track.applyConstraints({ advanced: [{ torch: torchOn }] });
+    document.getElementById('torchBtn').classList.toggle('on', torchOn);
+  } catch(e) { torchOn = false; }
+}
+
+function closeMe() {
+  stopCamera();
+  window.close();
+}
+
+// START
+window.addEventListener('load', startCamera);
+window.addEventListener('beforeunload', stopCamera);
+</script>
+</body>
+</html>
