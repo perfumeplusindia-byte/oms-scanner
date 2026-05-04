@@ -1,310 +1,236 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>OMS Scanner</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#0a0f1e;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:14px 10px;gap:10px}
-h2{font-size:18px;font-weight:900;color:#3b82f6;margin-top:2px}
-.sub{font-size:11px;color:#64748b;text-align:center}
-#reader{width:min(380px,96vw);border-radius:14px;overflow:hidden;border:2.5px solid #1e3a5f;background:#000}
-#statusBar{width:min(380px,96vw);padding:9px 14px;border-radius:10px;background:#111827;font-size:13px;font-weight:700;text-align:center;border:1px solid #1e3a5f;min-height:40px;display:flex;align-items:center;justify-content:center;transition:border-color .3s,color .3s}
-.queue-wrap{width:min(380px,96vw);background:#0f172a;border-radius:12px;border:1px solid #1e3a5f;overflow:hidden}
-.queue-hdr{background:#1e293b;padding:7px 12px;font-size:12px;font-weight:700;color:#94a3b8;display:flex;justify-content:space-between;align-items:center}
-.badges{display:flex;gap:6px;align-items:center}
-.badge{border-radius:20px;padding:2px 9px;font-size:12px;font-weight:800;color:#fff}
-.badge.g{background:#16a34a}.badge.r{background:#dc2626}
-.clrbtn{background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer}
-#queueList{max-height:150px;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:5px}
-#queueList:empty::after{content:"No scans yet";color:#475569;font-size:12px;display:block;text-align:center;padding:10px 0}
-.qi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:13px;animation:fi .2s ease}
-.qi.ok{background:#052e16;border:1px solid #166534}
-.qi.er{background:#2d0a0a;border:1px solid #7f1d1d}
-.qi .ic{font-size:16px;flex-shrink:0}
-.qi .aw{font-family:monospace;font-weight:800;flex:1;word-break:break-all;font-size:12px}
-.qi .inf{font-size:10px;color:#94a3b8;max-width:120px;text-align:right;line-height:1.4}
-.qi.er .inf{color:#f87171}
-@keyframes fi{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
-.btns{display:flex;gap:7px;width:min(380px,96vw)}
-.btn{flex:1;padding:10px 4px;border-radius:10px;border:1.5px solid #1e3a5f;background:#111827;color:#f1f5f9;font-size:12px;font-weight:700;cursor:pointer}
-.btn:active{background:#1e3a5f}
-.btn.done{background:#16a34a;border-color:#16a34a;color:#fff}
-.manual-row{display:flex;gap:7px;width:min(380px,96vw)}
-input{flex:1;padding:10px;border-radius:10px;border:1px solid #1e3a5f;background:#111827;color:#fff;font-size:14px;outline:none}
-input:focus{border-color:#3b82f6}
-select{width:min(380px,96vw);padding:8px;border-radius:10px;border:1px solid #1e3a5f;background:#111827;color:#fff;font-size:12px}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:#fff;font-family:'Inter',system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+  #video{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0}
+  #overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:20px;z-index:10;background:linear-gradient(to bottom,rgba(0,0,0,.5) 0%,transparent 30%,transparent 70%,rgba(0,0,0,.7) 100%)}
+  #topBar{display:flex;justify-content:space-between;align-items:center}
+  #ctxLabel{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);padding:6px 16px;border-radius:999px}
+  #closeBtn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #viewfinder{position:relative;align-self:center;width:280px;height:140px;border:2px solid rgba(255,255,255,.5);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .corner{position:absolute;width:20px;height:20px}
+  .corner.tl{top:-2px;left:-2px;border-top:4px solid #4edea3;border-left:4px solid #4edea3;border-radius:4px 0 0 0}
+  .corner.tr{top:-2px;right:-2px;border-top:4px solid #4edea3;border-right:4px solid #4edea3;border-radius:0 4px 0 0}
+  .corner.bl{bottom:-2px;left:-2px;border-bottom:4px solid #4edea3;border-left:4px solid #4edea3;border-radius:0 0 0 4px}
+  .corner.br{bottom:-2px;right:-2px;border-bottom:4px solid #4edea3;border-right:4px solid #4edea3;border-radius:0 0 4px 0}
+  #scanLine{position:absolute;width:90%;height:2px;background:#4edea3;box-shadow:0 0 10px #4edea3;animation:scan 2s linear infinite;left:5%}
+  @keyframes scan{0%{top:15%}50%{top:80%}100%{top:15%}}
+  #bottomPanel{display:flex;flex-direction:column;gap:12px}
+  #statusBar{text-align:center;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+  #scannedBox{background:rgba(255,255,255,.08);backdrop-filter:blur(8px);border-radius:12px;padding:12px;max-height:180px;overflow-y:auto}
+  #scannedTitle{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-bottom:8px}
+  #scannedList{display:flex;flex-direction:column;gap:6px}
+  .scan-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;animation:fadeIn .2s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .scan-icon{width:28px;height:28px;border-radius:6px;background:#4edea3;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .scan-icon svg{width:16px;height:16px;color:#000}
+  .scan-awb{font-family:monospace;font-size:13px;font-weight:700;flex:1}
+  .scan-del{width:28px;height:28px;background:rgba(255,0,0,.2);border-radius:6px;border:none;color:#ff6b6b;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+  #btnRow{display:flex;gap:10px}
+  #manualBtn{flex:1;height:48px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  #sendBtn{flex:2;height:48px;background:#000;border:2px solid #4edea3;border-radius:12px;color:#4edea3;font-weight:900;font-size:14px;cursor:pointer;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;text-transform:uppercase}
+  #sendBtn:hover{background:#4edea3;color:#000}
+  #sendBtn:disabled{opacity:.4;cursor:not-allowed}
+  #counter{background:#4edea3;color:#000;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;min-width:20px;text-align:center}
+  #errorMsg{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:100;display:none;text-align:center;max-width:320px}
+  #manualModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;z-index:200;align-items:flex-end;justify-content:center}
+  #manualModal.show{display:flex}
+  #manualForm{background:#1a1a1a;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px}
+  #manualForm h3{font-size:16px;font-weight:700;margin-bottom:16px}
+  #manualInput{width:100%;background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;padding:12px 16px;color:#fff;font-family:monospace;font-size:16px;text-transform:uppercase;outline:none;letter-spacing:.05em}
+  #manualInput:focus{border-color:#4edea3}
+  #manualSubmit{width:100%;margin-top:12px;height:48px;background:#4edea3;border:none;border-radius:10px;color:#000;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:.05em}
+  #cancelManual{width:100%;margin-top:8px;height:44px;background:transparent;border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer}
 </style>
 </head>
 <body>
-<h2>&#128230; OMS Bulk Scanner</h2>
-<div class="sub">Continuous scan &#8212; window stays open until you tap Done</div>
-<div id="reader"></div>
-<div id="statusBar" style="color:#94a3b8">&#9203; Initializing camera...</div>
-<div class="queue-wrap">
-  <div class="queue-hdr">
-    SCAN QUEUE
-    <div class="badges">
-      <span id="okBadge" class="badge g">0 &#10003;</span>
-      <span id="erBadge" class="badge r">0 &#10007;</span>
-      <button class="clrbtn" onclick="clearQueue()">Clear</button>
+<video id="video" autoplay playsinline muted></video>
+<div id="overlay">
+  <div id="topBar">
+    <span id="ctxLabel">OMS Scanner</span>
+    <button id="closeBtn" onclick="closeScanner()">✕</button>
+  </div>
+  <div id="viewfinder">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div id="scanLine"></div>
+  </div>
+  <div id="bottomPanel">
+    <p id="statusBar">Initializing camera...</p>
+    <div id="scannedBox">
+      <p id="scannedTitle">Scanned AWBs (<span id="counter">0</span>)</p>
+      <div id="scannedList"></div>
+    </div>
+    <div id="btnRow">
+      <button id="manualBtn" onclick="showManual()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>Manual
+      </button>
+      <button id="sendBtn" disabled onclick="sendAll()">
+        Send All <span id="counter2">0</span> ▶
+      </button>
     </div>
   </div>
-  <div id="queueList"></div>
 </div>
-<div class="btns">
-  <button class="btn" onclick="flipCam()">&#128260; Flip</button>
-  <button class="btn" id="pauseBtn" onclick="togglePause()">&#9208; Pause</button>
-  <button class="btn done" onclick="doneClose()">&#10003; Done &amp; Close</button>
+<div id="errorMsg"></div>
+<div id="manualModal">
+  <div id="manualForm">
+    <h3>Manual Entry</h3>
+    <input id="manualInput" type="text" placeholder="TYPE AWB NUMBER" autocapitalize="characters" autocomplete="off">
+    <button id="manualSubmit" onclick="addManual()">Add AWB</button>
+    <button id="cancelManual" onclick="hideManual()">Cancel</button>
+  </div>
 </div>
-<div class="manual-row">
-  <input id="mi" placeholder="Type AWB manually + Enter" autocomplete="off" autocapitalize="characters">
-  <button class="btn" style="flex:none;padding:10px 14px" onclick="sendManual()">Add</button>
-</div>
-<select id="camSel" onchange="switchToCam(this.value)"></select>
 
 <script>
-var scanner  = null;
-var cameras  = [];
-var paused   = false;
-var scanned  = {};
-var okCount  = 0;
-var erCount  = 0;
-var allItems = [];
+var scanned = [];
+var lastScanned = '';
+var lastScannedTime = 0;
+var retUrl = '';
+var ctx = 'dispatch';
 
-function setStatus(msg, color, border) {
+// Parse URL params
+(function(){
+  var p = new URLSearchParams(window.location.search);
+  retUrl = p.get('ret') || '';
+  ctx    = p.get('ctx') || 'dispatch';
+  var label = ctx==='return' ? '⬅ Returns Scan' : ctx==='track' ? '🔍 Track Scan' : '📦 Outbound Scan';
+  document.getElementById('ctxLabel').textContent = label;
+})();
+
+// Beep
+function beep() {
+  try {
+    var a = new (window.AudioContext||window.webkitAudioContext)();
+    var o = a.createOscillator(); var g = a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.type = 'square'; o.frequency.value = 880;
+    g.gain.setValueAtTime(.3, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, a.currentTime+.1);
+    o.start(); o.stop(a.currentTime+.1);
+  } catch(e){}
+}
+
+function vibrate() { if(navigator.vibrate) navigator.vibrate(40); }
+
+function setStatus(msg, ok) {
   var el = document.getElementById('statusBar');
   el.textContent = msg;
-  el.style.color = color || '#f1f5f9';
-  el.style.borderColor = border || '#1e3a5f';
+  el.style.color = ok ? '#4edea3' : 'rgba(255,255,255,.7)';
 }
 
-function updateBadges() {
-  document.getElementById('okBadge').textContent = okCount + ' OK';
-  document.getElementById('erBadge').textContent = erCount + ' ERR';
+function renderList() {
+  var el = document.getElementById('scannedList');
+  var cnt = scanned.length;
+  document.getElementById('counter').textContent = cnt;
+  document.getElementById('counter2').textContent = cnt;
+  document.getElementById('sendBtn').disabled = cnt===0;
+  if (!cnt) { el.innerHTML='<p style="opacity:.4;font-size:12px;text-align:center;padding:8px 0">No scans yet</p>'; return; }
+  el.innerHTML = scanned.map(function(awb,i){
+    return '<div class="scan-item">' +
+      '<div class="scan-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9V7a2 2 0 012-2h2M3 15v2a2 2 0 002 2h2M15 3h2a2 2 0 012 2v2M15 21h2a2 2 0 002-2v-2"/><path d="M8 12h8"/></svg></div>' +
+      '<span class="scan-awb">'+awb+'</span>' +
+      '<button class="scan-del" onclick="removeScan('+i+')">×</button></div>';
+  }).join('');
 }
 
-function addToQueue(awb, found, info) {
-  var list = document.getElementById('queueList');
-  var d = document.createElement('div');
-  d.className = 'qi ' + (found ? 'ok' : 'er');
-  d.innerHTML =
-    '<div class="ic">' + (found ? '&#10003;' : '&#10007;') + '</div>' +
-    '<div class="aw">' + awb + '</div>' +
-    '<div class="inf">' + (info || (found ? 'Found' : 'Not in cache')) + '</div>';
-  list.insertBefore(d, list.firstChild);
+function removeScan(i){ scanned.splice(i,1); renderList(); }
+
+function addAWB(awb) {
+  awb = awb.trim().toUpperCase();
+  if (!awb || awb.length<5) return;
+  var now = Date.now();
+  if (awb===lastScanned && now-lastScannedTime<2000) return;
+  if (scanned.indexOf(awb)!==-1) { setStatus('Already scanned: '+awb, false); return; }
+  lastScanned = awb; lastScannedTime = now;
+  scanned.push(awb);
+  beep(); vibrate();
+  renderList();
+  setStatus('✓ Scanned: ' + awb, true);
 }
 
-function clearQueue() {
-  document.getElementById('queueList').innerHTML = '';
-  scanned = {}; okCount = 0; erCount = 0; allItems = [];
-  updateBadges();
-}
-
-function speak(text) {
-  try {
-    window.speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-IN'; u.rate = 1.1; u.volume = 1;
-    window.speechSynthesis.speak(u);
-  } catch(e) {}
-}
-
-function beep(freq, dur, type) {
-  try {
-    var ac = new (window.AudioContext || window.webkitAudioContext)();
-    var o = ac.createOscillator();
-    var g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.type = type || 'sine';
-    o.frequency.value = freq || 880;
-    g.gain.setValueAtTime(0.4, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + (dur || 0.15));
-    o.start(); o.stop(ac.currentTime + (dur || 0.15));
-    setTimeout(function(){ try{ ac.close(); }catch(e){} }, 600);
-  } catch(e) {}
-}
-
-function lookupAWB(awb, cb) {
-  var done = false;
-  var timer = setTimeout(function() {
-    if (done) return;
-    done = true;
-    window.removeEventListener('message', handler);
-    cb(null);
-  }, 1500);
-
-  function handler(e) {
-    if (!e.data || e.data.type !== 'OMS_AWB_RESULT' || e.data.awb !== awb) return;
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    window.removeEventListener('message', handler);
-    cb(e.data.info || null);
-  }
-
-  window.addEventListener('message', handler);
-
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({ type: 'OMS_AWB_LOOKUP', awb: awb }, '*');
-    } else {
-      clearTimeout(timer); done = true;
-      window.removeEventListener('message', handler);
-      cb(null);
-    }
-  } catch(ex) {
-    clearTimeout(timer); done = true;
-    window.removeEventListener('message', handler);
-    cb(null);
-  }
-}
-
-function processAWB(text) {
-  text = (text || '').replace(/\s+/g, '').toUpperCase();
-  if (!text || text.length < 4) return;
-  if (scanned[text]) {
-    setStatus('Already scanned: ' + text, '#f59e0b');
-    return;
-  }
-  scanned[text] = true;
-  if (navigator.vibrate) navigator.vibrate(50);
-  beep(880, 0.08);
-  setStatus('Looking up: ' + text, '#60a5fa');
-
-  lookupAWB(text, function(info) {
-    var found = !!(info && (info.customer || info.orderId));
-    allItems.push({ awb: text, found: found, info: info });
-
-    // Always send to parent OMS
-    try {
-      if (window.opener && !window.opener.closed)
-        window.opener.postMessage({ type: 'OMS_SCAN', awb: text }, '*');
-    } catch(ex) {}
-
-    if (found) {
-      okCount++;
-      var label = (info.customer || '') + (info.courier ? ' - ' + info.courier : '');
-      addToQueue(text, true, label.trim());
-      beep(1046, 0.12);
-      speak(text.slice(-4) + ' OK. ' + (info.courier || ''));
-      setStatus('FOUND: ' + text + ' - ' + (info.courier || 'OK'), '#22c55e', '#16a34a');
-    } else {
-      erCount++;
-      addToQueue(text, false, 'Not in cache');
-      beep(200, 0.3, 'sawtooth');
-      speak(text.slice(-4) + ' not found');
-      setStatus('NOT FOUND: ' + text, '#ef4444', '#dc2626');
-    }
-
-    updateBadges();
-    setTimeout(function() {
-      if (!paused) setStatus('Ready - aim at next barcode', '#94a3b8');
-    }, 1800);
-  });
-}
-
-function doScan(camId) {
-  if (!scanner) scanner = new Html5Qrcode('reader');
-  setStatus('Starting camera...', '#94a3b8');
-  scanner.stop().catch(function(){}).finally(function() {
-    scanner.start(
-      camId,
-      { fps: 15, qrbox: { width: 260, height: 110 }, aspectRatio: 1.6 },
-      function(text) { processAWB(text); },
-      function() {}
-    ).then(function() {
-      paused = false;
-      document.getElementById('pauseBtn').textContent = 'Pause';
-      setStatus('Ready - aim at barcode', '#94a3b8');
-      speak('scanner ready');
-    }).catch(function(err) {
-      setStatus('Camera error: ' + (err.message || err), '#ef4444');
-      speak('camera error. please try again.');
+// ZXing scanner
+function startScanner() {
+  if (!window.ZXing) { setStatus('Scanner library error'); return; }
+  var hints = new Map();
+  var formats = [
+    ZXing.BarcodeFormat.CODE_128,
+    ZXing.BarcodeFormat.CODE_39,
+    ZXing.BarcodeFormat.EAN_13,
+    ZXing.BarcodeFormat.EAN_8,
+    ZXing.BarcodeFormat.ITF,
+    ZXing.BarcodeFormat.QR_CODE,
+    ZXing.BarcodeFormat.DATA_MATRIX
+  ];
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+  var reader = new ZXing.BrowserMultiFormatReader(hints, 500);
+  setStatus('Starting camera...');
+  reader.listVideoInputDevices().then(function(devices) {
+    var deviceId;
+    // Prefer back camera
+    var back = devices.filter(function(d){ return /back|rear|environment/i.test(d.label); });
+    deviceId = back.length ? back[back.length-1].deviceId : devices.length ? devices[devices.length-1].deviceId : undefined;
+    return reader.decodeFromVideoDevice(deviceId, 'video', function(result, err) {
+      if (result) addAWB(result.getText());
+      if (err && !(err instanceof ZXing.NotFoundException)) {
+        if (!(err instanceof ZXing.ChecksumException)) {
+          // Ignore decode errors silently
+        }
+      }
     });
-  });
-}
-
-function initCameras() {
-  setStatus('Requesting camera access...', '#94a3b8');
-  Html5Qrcode.getCameras().then(function(cams) {
-    if (!cams || cams.length === 0) {
-      setStatus('No camera found on this device', '#ef4444');
-      speak('no camera found');
-      return;
+  }).then(function(){
+    setStatus('Camera active — point at barcode');
+  }).catch(function(err){
+    var msg = err.toString();
+    if (msg.includes('Permission')) {
+      showError('Camera permission denied. Allow in browser settings.');
+    } else if (msg.includes('NotFound') || msg.includes('no device')) {
+      showError('No camera found on this device.');
+    } else {
+      showError('Camera error: ' + err.message);
     }
-    cameras = cams;
-    var sel = document.getElementById('camSel');
-    sel.innerHTML = '';
-    cams.forEach(function(c, i) {
-      var o = document.createElement('option');
-      o.value = c.id;
-      o.textContent = c.label || ('Camera ' + (i + 1));
-      sel.appendChild(o);
-    });
-    var back = cams.find(function(c){ return /back|rear|environ/i.test(c.label || ''); });
-    var chosen = back ? back.id : cams[0].id;
-    if (back) sel.value = back.id;
-    doScan(chosen);
-  }).catch(function(err) {
-    setStatus('Camera blocked: ' + (err.message || err), '#ef4444');
-    speak('camera permission denied. please allow camera access and refresh.');
+    setStatus('Camera error ⚠');
   });
 }
 
-function flipCam() {
-  var sel = document.getElementById('camSel');
-  if (!sel || sel.options.length < 2) {
-    setStatus('Only one camera available', '#f59e0b'); return;
-  }
-  sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
-  doScan(sel.value);
+function showError(msg) {
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg; el.style.display='block';
+  setTimeout(function(){ el.style.display='none'; }, 5000);
 }
 
-function switchToCam(id) { doScan(id); }
-
-function togglePause() {
-  var btn = document.getElementById('pauseBtn');
-  if (!scanner) return;
-  if (!paused) {
-    try { scanner.pause(true); } catch(e) {}
-    paused = true;
-    btn.textContent = 'Resume';
-    setStatus('Paused', '#f59e0b', '#f59e0b');
-  } else {
-    try { scanner.resume(); } catch(e) {}
-    paused = false;
-    btn.textContent = 'Pause';
-    setStatus('Ready - aim at barcode', '#94a3b8');
-  }
+function sendAll() {
+  if (!scanned.length) return;
+  if (!retUrl) { showError('Return URL missing. Re-open from OMS.'); return; }
+  var awbStr = scanned.join(',');
+  var url = retUrl + (retUrl.includes('?')?'&':'?') + 'awb=' + encodeURIComponent(awbStr) + '&ctx=' + encodeURIComponent(ctx);
+  window.location.href = url;
 }
 
-function sendManual() {
-  var val = document.getElementById('mi').value.trim();
-  if (!val) return;
-  document.getElementById('mi').value = '';
-  processAWB(val);
+function closeScanner() {
+  if (scanned.length>0) {
+    if (confirm('Discard '+scanned.length+' scanned AWBs and close?')) {
+      window.close();
+    }
+  } else { window.close(); }
 }
 
-function doneClose() {
-  try {
-    if (window.opener && !window.opener.closed)
-      window.opener.postMessage({ type: 'OMS_SCAN_DONE', items: allItems }, '*');
-  } catch(ex) {}
-  if (scanner) scanner.stop().catch(function(){});
-  setTimeout(function(){ window.close(); }, 300);
+function showManual() { document.getElementById('manualModal').classList.add('show'); setTimeout(function(){ document.getElementById('manualInput').focus(); },300); }
+function hideManual() { document.getElementById('manualModal').classList.remove('show'); document.getElementById('manualInput').value=''; }
+function addManual() {
+  var v = document.getElementById('manualInput').value.trim().toUpperCase();
+  if (v.length>=5) { addAWB(v); hideManual(); }
+  else showError('AWB must be at least 5 characters');
 }
 
-document.getElementById('mi').addEventListener('keyup', function(e) {
-  if (e.key === 'Enter') sendManual();
-});
-
-window.addEventListener('beforeunload', function() {
-  if (scanner) scanner.stop().catch(function(){});
-});
-
-window.addEventListener('load', initCameras);
+document.getElementById('manualInput').addEventListener('keyup',function(e){ if(e.key==='Enter') addManual(); });
+document.addEventListener('DOMContentLoaded', function(){ startScanner(); renderList(); });
 </script>
 </body>
 </html>
